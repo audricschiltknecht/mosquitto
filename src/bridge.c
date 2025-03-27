@@ -299,6 +299,8 @@ int bridge__connect_step2(struct mosquitto *context)
 int bridge__connect_step3(struct mosquitto *context)
 {
 	int rc;
+	mosquitto_property session_expiry_interval;
+	mosquitto_property *properties = NULL;
 
 	rc = net__socket_connect_step3(context, context->bridge->addresses[context->bridge->cur_address].address);
 	if(rc > 0){
@@ -319,7 +321,15 @@ int bridge__connect_step3(struct mosquitto *context)
 		context->bridge->primary_retry = db.now_s + 5;
 	}
 
-	rc = send__connect(context, context->keepalive, context->clean_start, NULL);
+	if(context->bridge->session_expiry_interval != 0){
+		session_expiry_interval.value.i32 = context->bridge->session_expiry_interval;
+		session_expiry_interval.identifier = MQTT_PROP_SESSION_EXPIRY_INTERVAL;
+		session_expiry_interval.client_generated = false;
+		session_expiry_interval.next = properties;
+		properties = &session_expiry_interval;
+	}
+
+	rc = send__connect(context, context->keepalive, context->clean_start, properties);
 	if(rc == MOSQ_ERR_SUCCESS){
 		return MOSQ_ERR_SUCCESS;
 	}else if(rc == MOSQ_ERR_ERRNO && errno == ENOTCONN){
@@ -347,6 +357,8 @@ int bridge__connect(struct mosquitto *context)
 	size_t notification_topic_len;
 	uint8_t notification_payload;
 	uint8_t qos;
+	mosquitto_property session_expiry_interval;
+	mosquitto_property *properties = NULL;
 
 	if(!context || !context->bridge) return MOSQ_ERR_INVAL;
 
@@ -461,7 +473,15 @@ int bridge__connect(struct mosquitto *context)
 
 	HASH_ADD(hh_sock, db.contexts_by_sock, sock, sizeof(context->sock), context);
 
-	rc2 = send__connect(context, context->keepalive, context->clean_start, NULL);
+	if(context->bridge->session_expiry_interval != 0){
+		session_expiry_interval.value.i32 = context->bridge->session_expiry_interval;
+		session_expiry_interval.identifier = MQTT_PROP_SESSION_EXPIRY_INTERVAL;
+		session_expiry_interval.client_generated = false;
+		session_expiry_interval.next = properties;
+		properties = &session_expiry_interval;
+	}
+
+	rc2 = send__connect(context, context->keepalive, context->clean_start, properties);
 	if(rc2 == MOSQ_ERR_SUCCESS){
 		return rc;
 	}else if(rc2 == MOSQ_ERR_ERRNO && errno == ENOTCONN){

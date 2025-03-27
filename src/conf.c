@@ -1140,6 +1140,26 @@ static int config__read_file_core(struct mosquitto__config *config, bool reload,
 					if(conf__parse_string(&token, "bridge_psk", &cur_bridge->tls_psk, saveptr)) return MOSQ_ERR_INVAL;
 #else
 					log__printf(NULL, MOSQ_LOG_WARNING, "Warning: Bridge and/or TLS-PSK support not available.");
+
+#endif
+				}else if(!strcmp(token, "bridge_session_expiry_interval")){
+#if defined(WITH_BRIDGE)
+					if(reload) continue; /* Bridges not valid for reloading. */
+					if(!cur_bridge){
+						log__printf(NULL, MOSQ_LOG_ERR, "Error: Invalid bridge configuration.");
+						return MOSQ_ERR_INVAL;
+					}
+					if(conf__parse_int(&token, "bridge_session_expiry_interval", &tmp_int, saveptr)) return MOSQ_ERR_INVAL;
+					if(tmp_int < 0){
+						log__printf(NULL, MOSQ_LOG_ERR, "Error: bridge_session_expiry_interval must not be negative.");
+						return MOSQ_ERR_INVAL;
+					}else if((uint64_t)tmp_int > (uint64_t)UINT32_MAX){
+						log__printf(NULL, MOSQ_LOG_ERR, "Error: bridge_session_expiry_interval must be lower than %u.", UINT32_MAX);
+						return MOSQ_ERR_INVAL;
+					}
+					cur_bridge->session_expiry_interval = (uint32_t)tmp_int;
+#else
+					log__printf(NULL, MOSQ_LOG_WARNING, "Warning: Bridge support not available.");
 #endif
 				}else if(!strcmp(token, "bridge_tls_version")){
 #if defined(WITH_BRIDGE) && defined(WITH_TLS)
